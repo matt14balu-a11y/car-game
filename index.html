@@ -1,0 +1,1332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Neon Coast</title>
+
+<style>
+html,body{
+    margin:0;
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    background:#05070a;
+    font-family:Arial,sans-serif;
+    color:white
+}
+
+canvas{display:block}
+
+#hud{
+    position:fixed;
+    inset:0;
+    pointer-events:none
+}
+
+#logo{
+    position:absolute;
+    top:18px;
+    left:20px;
+    font-size:25px;
+    font-weight:900;
+    letter-spacing:3px;
+    text-shadow:0 3px 12px #000
+}
+
+#speed{
+    position:absolute;
+    right:20px;
+    bottom:20px;
+    min-width:125px;
+    padding:12px 18px;
+    border-radius:12px;
+    background:#000b;
+    text-align:right
+}
+
+#speedNumber{
+    font-size:32px;
+    font-weight:bold
+}
+
+#help{
+    position:absolute;
+    left:20px;
+    bottom:20px;
+    padding:10px 14px;
+    border-radius:10px;
+    background:#0009;
+    font-size:13px;
+    line-height:1.6
+}
+
+#crosshair{
+    position:absolute;
+    left:50%;
+    top:50%;
+    width:5px;
+    height:5px;
+    margin:-2px;
+    border-radius:50%;
+    background:white
+}
+
+#menu{
+    display:none;
+    position:absolute;
+    top:70px;
+    right:20px;
+    width:260px;
+    padding:18px;
+    border-radius:16px;
+    background:#080b10ee;
+    border:1px solid #ffffff33;
+    box-shadow:0 10px 40px #000b;
+    pointer-events:auto
+}
+
+#menu h2{
+    margin:0 0 12px;
+    font-size:20px
+}
+
+button{
+    width:100%;
+    margin:5px 0;
+    padding:10px;
+    border:0;
+    border-radius:8px;
+    background:#202936;
+    color:white;
+    font-weight:bold
+}
+
+button:hover{
+    background:#344255
+}
+
+#status{
+    margin-top:10px;
+    font-size:12px;
+    color:#9ee7ff
+}
+</style>
+</head>
+
+<body>
+
+<div id="hud">
+
+<div id="logo">NEON COAST</div>
+
+<div id="crosshair"></div>
+
+<div id="speed">
+<div id="speedNumber">0</div>
+<div>KM/H</div>
+</div>
+
+<div id="help">
+W A S D / ARROWS — DRIVE<br>
+SPACE — BRAKE<br>
+V — CAMERA<br>
+R — RESET<br>
+M — MOD MENU
+</div>
+
+<div id="menu">
+
+<h2>🛠️ MOD MENU</h2>
+
+<button onclick="boostMode()">
+⚡ Toggle Super Speed
+</button>
+
+<button onclick="repairCar()">
+🔧 Repair Vehicle
+</button>
+
+<button onclick="changeCar()">
+🎨 Change Vehicle
+</button>
+
+<button onclick="toggleTraffic()">
+🚗 Toggle Traffic
+</button>
+
+<button onclick="changeWeather()">
+🌧️ Change Weather
+</button>
+
+<button onclick="changeTime()">
+🌅 Change Time
+</button>
+
+<button onclick="teleportCity()">
+📍 Teleport: City
+</button>
+
+<button onclick="teleportBeach()">
+🏖️ Teleport: Beach
+</button>
+
+<div id="status">
+Mods ready
+</div>
+
+</div>
+
+</div>
+
+<script type="importmap">
+{
+"imports":{
+"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js"
+}
+}
+</script>
+
+<script type="module">
+
+import * as THREE from
+"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js";
+
+
+/* =========================
+SCENE
+========================= */
+
+const scene =
+new THREE.Scene();
+
+scene.background =
+new THREE.Color(0x86b7dc);
+
+scene.fog =
+new THREE.Fog(
+0x86b7dc,
+180,
+850
+);
+
+
+/* =========================
+CAMERA
+========================= */
+
+const camera =
+new THREE.PerspectiveCamera(
+65,
+innerWidth/innerHeight,
+0.1,
+2000
+);
+
+camera.position.set(
+0,6,15
+);
+
+
+/* =========================
+RENDERER
+========================= */
+
+const renderer =
+new THREE.WebGLRenderer({
+antialias:true
+});
+
+renderer.setSize(
+innerWidth,
+innerHeight
+);
+
+renderer.setPixelRatio(
+Math.min(devicePixelRatio,2)
+);
+
+renderer.shadowMap.enabled=true;
+
+renderer.shadowMap.type =
+THREE.PCFSoftShadowMap;
+
+renderer.outputColorSpace =
+THREE.SRGBColorSpace;
+
+document.body.appendChild(
+renderer.domElement
+);
+
+
+/* =========================
+LIGHTING
+========================= */
+
+const skyLight =
+new THREE.HemisphereLight(
+0xbfe5ff,
+0x26351f,
+2.3
+);
+
+scene.add(skyLight);
+
+
+const sun =
+new THREE.DirectionalLight(
+0xffffff,
+3.5
+);
+
+sun.position.set(
+150,
+220,
+100
+);
+
+sun.castShadow=true;
+
+sun.shadow.mapSize.set(
+2048,
+2048
+);
+
+scene.add(sun);
+
+
+/* =========================
+GROUND
+========================= */
+
+const ground =
+new THREE.Mesh(
+new THREE.PlaneGeometry(
+1600,
+1600
+),
+new THREE.MeshStandardMaterial({
+color:0x466d49,
+roughness:1
+})
+);
+
+ground.rotation.x =
+-Math.PI/2;
+
+ground.receiveShadow=true;
+
+scene.add(ground);
+
+
+/* =========================
+ROADS
+========================= */
+
+const roadMaterial =
+new THREE.MeshStandardMaterial({
+color:0x25282b,
+roughness:.9
+});
+
+
+function road(
+x,z,w,d
+){
+
+const r =
+new THREE.Mesh(
+new THREE.BoxGeometry(
+w,.08,d
+),
+roadMaterial
+);
+
+r.position.set(
+x,.04,z
+);
+
+r.receiveShadow=true;
+
+scene.add(r);
+}
+
+
+for(
+let i=-350;
+i<=350;
+i+=100
+){
+
+road(i,0,30,760);
+
+road(0,i,760,30);
+
+}
+
+
+/* =========================
+ROAD LINES
+========================= */
+
+const lineMaterial =
+new THREE.MeshBasicMaterial({
+color:0xf3e7a1
+});
+
+
+for(
+let i=-350;
+i<=350;
+i+=100
+){
+
+for(
+let z=-370;
+z<370;
+z+=22
+){
+
+const l =
+new THREE.Mesh(
+new THREE.BoxGeometry(
+1,.1,8
+),
+lineMaterial
+);
+
+l.position.set(
+i,.11,z
+);
+
+scene.add(l);
+
+}
+
+
+for(
+let x=-370;
+x<370;
+x+=22
+){
+
+const l =
+new THREE.Mesh(
+new THREE.BoxGeometry(
+8,.1,1
+),
+lineMaterial
+);
+
+l.position.set(
+x,.11,i
+);
+
+scene.add(l);
+
+}
+
+}
+
+
+/* =========================
+BUILDINGS
+========================= */
+
+const colours=[
+0x687078,
+0x80766e,
+0x566b76,
+0x75638a,
+0x9a856b
+];
+
+
+for(
+let x=-350;
+x<=350;
+x+=50
+){
+
+for(
+let z=-350;
+z<=350;
+z+=50
+){
+
+if(
+Math.abs(x%100)<25 ||
+Math.abs(z%100)<25
+) continue;
+
+
+const h =
+15+Math.random()*55;
+
+const size =
+22+Math.random()*15;
+
+
+const b =
+new THREE.Mesh(
+new THREE.BoxGeometry(
+size,h,size
+),
+new THREE.MeshStandardMaterial({
+color:
+colours[
+Math.floor(
+Math.random()*colours.length
+)],
+roughness:.8
+})
+);
+
+
+b.position.set(
+x+(Math.random()*10-5),
+h/2,
+z+(Math.random()*10-5)
+);
+
+b.castShadow=true;
+
+b.receiveShadow=true;
+
+scene.add(b);
+
+}
+
+}
+
+
+/* =========================
+BEACH
+========================= */
+
+const sand =
+new THREE.Mesh(
+new THREE.PlaneGeometry(
+1000,220
+),
+new THREE.MeshStandardMaterial({
+color:0xd5bd82,
+roughness:1
+})
+);
+
+sand.rotation.x=-Math.PI/2;
+
+sand.position.z=-560;
+
+scene.add(sand);
+
+
+const ocean =
+new THREE.Mesh(
+new THREE.PlaneGeometry(
+1400,300
+),
+new THREE.MeshStandardMaterial({
+color:0x126b92,
+roughness:.2,
+metalness:.15
+})
+);
+
+ocean.rotation.x=-Math.PI/2;
+
+ocean.position.set(
+0,-.1,-720
+);
+
+scene.add(ocean);
+
+
+/* =========================
+CAR
+========================= */
+
+function createCar(
+colour=0xe63c46
+){
+
+const car =
+new THREE.Group();
+
+
+const body =
+new THREE.Mesh(
+new THREE.BoxGeometry(
+3.6,1,7
+),
+new THREE.MeshStandardMaterial({
+color:colour,
+metalness:.4,
+roughness:.25
+})
+);
+
+body.position.y=1.05;
+
+body.castShadow=true;
+
+car.add(body);
+
+
+const cabin =
+new THREE.Mesh(
+new THREE.BoxGeometry(
+2.8,1.05,3.2
+),
+new THREE.MeshStandardMaterial({
+color:0x111d27,
+metalness:.1,
+roughness:.1
+})
+);
+
+cabin.position.set(
+0,1.85,-.25
+);
+
+cabin.castShadow=true;
+
+car.add(cabin);
+
+
+/* headlights */
+
+const headMaterial =
+new THREE.MeshStandardMaterial({
+color:0xffffff,
+emissive:0xffffff,
+emissiveIntensity:2
+});
+
+
+for(
+const x of [-1.25,1.25]
+){
+
+const light =
+new THREE.Mesh(
+new THREE.BoxGeometry(
+.45,.25,.1
+),
+headMaterial
+);
+
+light.position.set(
+x,.95,3.52
+);
+
+car.add(light);
+
+}
+
+
+/* wheels */
+
+const wheelMaterial =
+new THREE.MeshStandardMaterial({
+color:0x101010,
+roughness:.8
+});
+
+
+for(
+const x of [-1.8,1.8]
+){
+
+for(
+const z of [-2.25,2.25]
+){
+
+const wheel =
+new THREE.Mesh(
+new THREE.CylinderGeometry(
+.48,.48,.38,20
+),
+wheelMaterial
+);
+
+wheel.rotation.z =
+Math.PI/2;
+
+wheel.position.set(
+x,.55,z
+);
+
+car.add(wheel);
+
+}
+
+}
+
+
+return car;
+
+}
+
+
+/* =========================
+PLAYER
+========================= */
+
+const player =
+createCar();
+
+player.position.set(
+0,0,40
+);
+
+scene.add(player);
+
+
+/* =========================
+TRAFFIC
+========================= */
+
+const traffic=[];
+
+let trafficEnabled=true;
+
+
+const trafficColours=[
+0xffffff,
+0x2774b8,
+0xf1b32b,
+0x46a35b,
+0x9b3c9b,
+0x222222
+];
+
+
+for(
+let i=0;
+i<24;
+i++
+){
+
+const car =
+createCar(
+trafficColours[
+i%trafficColours.length
+]
+);
+
+car.scale.setScalar(.8);
+
+
+const horizontal =
+i%2===0;
+
+const lane =
+(Math.floor(i/2)%4-1.5)*7;
+
+
+car.position.set(
+horizontal
+? -350+i*28
+: lane,
+
+0,
+
+horizontal
+? lane
+: -350+i*28
+);
+
+
+car.userData.horizontal =
+horizontal;
+
+car.userData.direction =
+i%4<2 ? 1 : -1;
+
+
+scene.add(car);
+
+traffic.push(car);
+
+}
+
+
+/* =========================
+GAME STATE
+========================= */
+
+let speed=0;
+
+let heading=0;
+
+let chaseCamera=true;
+
+let superSpeed=false;
+
+let weather=0;
+
+let timeOfDay=0.25;
+
+
+/* =========================
+CONTROLS
+========================= */
+
+const keys={};
+
+
+addEventListener(
+"keydown",
+e=>{
+
+keys[
+e.key.toLowerCase()
+]=true;
+
+
+if(
+e.key.toLowerCase()==="r"
+){
+
+resetCar();
+
+}
+
+
+if(
+e.key.toLowerCase()==="v"
+){
+
+chaseCamera=
+!chaseCamera;
+
+}
+
+
+if(
+e.key.toLowerCase()==="m"
+){
+
+const menu=
+document.getElementById(
+"menu"
+);
+
+menu.style.display =
+menu.style.display==="block"
+? "none"
+: "block";
+
+}
+
+});
+
+
+addEventListener(
+"keyup",
+e=>{
+
+keys[
+e.key.toLowerCase()
+]=false;
+
+});
+
+
+/* =========================
+MOD FUNCTIONS
+========================= */
+
+window.boostMode=function(){
+
+superSpeed=!superSpeed;
+
+document.getElementById(
+"status"
+).textContent =
+superSpeed
+? "⚡ Super speed ON"
+: "Super speed OFF";
+
+};
+
+
+window.repairCar=function(){
+
+speed=0;
+
+document.getElementById(
+"status"
+).textContent =
+"🔧 Vehicle repaired";
+
+};
+
+
+window.changeCar=function(){
+
+const colours=[
+0xe83c46,
+0x2389da,
+0xeeeeee,
+0x111111,
+0xf1b52b,
+0x7c3aed
+];
+
+const colour =
+colours[
+Math.floor(
+Math.random()*colours.length
+)
+];
+
+player.traverse(
+object=>{
+
+if(
+object.isMesh &&
+object.material &&
+object.material.color
+){
+
+if(
+object.geometry.type==="BoxGeometry"
+&& object.position.y>0.5
+){
+
+object.material.color.set(
+colour
+);
+
+}
+
+}
+
+});
+
+document.getElementById(
+"status"
+).textContent =
+"🎨 Vehicle colour changed";
+
+};
+
+
+window.toggleTraffic=function(){
+
+trafficEnabled=
+!trafficEnabled;
+
+traffic.forEach(
+car=>{
+car.visible=
+trafficEnabled;
+});
+
+document.getElementById(
+"status"
+).textContent =
+trafficEnabled
+? "🚗 Traffic ON"
+: "🚗 Traffic OFF";
+
+};
+
+
+window.changeWeather=function(){
+
+weather=
+(weather+1)%3;
+
+
+if(weather===0){
+
+scene.background.set(
+0x86b7dc
+);
+
+scene.fog.near=180;
+
+scene.fog.far=850;
+
+document.getElementById(
+"status"
+).textContent=
+"☀️ Clear weather";
+
+}
+
+if(weather===1){
+
+scene.background.set(
+0x526a7c
+);
+
+scene.fog.near=80;
+
+scene.fog.far=500;
+
+document.getElementById(
+"status"
+).textContent=
+"🌧️ Rainy weather";
+
+}
+
+if(weather===2){
+
+scene.background.set(
+0x4d5359
+);
+
+scene.fog.near=25;
+
+scene.fog.far=220;
+
+document.getElementById(
+"status"
+).textContent=
+"🌫️ Foggy weather";
+
+}
+
+};
+
+
+window.changeTime=function(){
+
+timeOfDay+=0.25;
+
+if(
+timeOfDay>=1
+) timeOfDay=0;
+
+
+const angle=
+timeOfDay*Math.PI*2;
+
+
+sun.position.set(
+Math.cos(angle)*250,
+Math.sin(angle)*250,
+100
+);
+
+
+sun.intensity =
+Math.max(
+.15,
+Math.sin(angle)*3
+);
+
+
+skyLight.intensity =
+Math.max(
+.4,
+Math.sin(angle)*2
+);
+
+
+document.getElementById(
+"status"
+).textContent=
+"🌅 Time changed";
+
+};
+
+
+window.teleportCity=function(){
+
+player.position.set(
+0,0,40
+);
+
+speed=0;
+
+document.getElementById(
+"status"
+).textContent=
+"📍 Teleported to city";
+
+};
+
+
+window.teleportBeach=function(){
+
+player.position.set(
+0,0,-500
+);
+
+speed=0;
+
+document.getElementById(
+"status"
+).textContent=
+"🏖️ Teleported to beach";
+
+};
+
+
+/* =========================
+RESET
+========================= */
+
+function resetCar(){
+
+player.position.set(
+0,0,40
+);
+
+speed=0;
+
+heading=0;
+
+player.rotation.y=0;
+
+}
+
+
+/* =========================
+GAME LOOP
+========================= */
+
+let last=0;
+
+
+function animate(time){
+
+requestAnimationFrame(
+animate
+);
+
+
+const delta=
+Math.min(
+.035,
+(time-last)/1000
+);
+
+last=time;
+
+
+/* controls */
+
+const forward =
+keys.w ||
+keys.arrowup;
+
+const reverse =
+keys.s ||
+keys.arrowdown;
+
+const left =
+keys.a ||
+keys.arrowleft;
+
+const right =
+keys.d ||
+keys.arrowright;
+
+
+if(forward){
+
+speed +=
+(superSpeed?70:30)
+*delta;
+
+}
+
+
+if(reverse){
+
+speed -=
+20*delta;
+
+}
+
+
+if(keys[" "] ){
+
+speed *=
+Math.pow(.03,delta);
+
+}
+
+
+speed *=
+Math.pow(.985,delta);
+
+
+speed=
+THREE.MathUtils.clamp(
+speed,
+-15,
+superSpeed?120:65
+);
+
+
+/* steering */
+
+const steering =
+(right?1:0) -
+(left?1:0);
+
+
+heading +=
+steering *
+delta *
+(.6+Math.abs(speed)/45);
+
+
+player.rotation.y=
+heading;
+
+
+player.position.x +=
+Math.sin(heading) *
+speed *
+delta;
+
+
+player.position.z +=
+Math.cos(heading) *
+speed *
+delta;
+
+
+/* traffic */
+
+if(trafficEnabled){
+
+for(
+const car of traffic
+){
+
+const movement =
+car.userData.direction *
+delta *
+18;
+
+
+if(
+car.userData.horizontal
+){
+
+car.position.x +=
+movement;
+
+}else{
+
+car.position.z +=
+movement;
+
+}
+
+
+if(car.position.x>400)
+car.position.x=-400;
+
+if(car.position.x<-400)
+car.position.x=400;
+
+if(car.position.z>400)
+car.position.z=-400;
+
+if(car.position.z<-400)
+car.position.z=400;
+
+}
+
+}
+
+
+/* camera */
+
+if(chaseCamera){
+
+const target =
+new THREE.Vector3(
+player.position.x-
+Math.sin(heading)*13,
+
+6,
+
+player.position.z-
+Math.cos(heading)*13
+);
+
+
+camera.position.lerp(
+target,
+.12
+);
+
+
+camera.lookAt(
+player.position.x,
+1.2,
+player.position.z
+);
+
+}else{
+
+camera.position.set(
+player.position.x,
+2.5,
+player.position.z
+);
+
+camera.rotation.y=
+heading+Math.PI;
+
+}
+
+
+/* speed HUD */
+
+document.getElementById(
+"speedNumber"
+).textContent=
+Math.round(
+Math.abs(speed)*3.6
+);
+
+
+renderer.render(
+scene,
+camera
+);
+
+}
+
+
+animate(0);
+
+
+/* =========================
+RESIZE
+========================= */
+
+addEventListener(
+"resize",
+()=>{
+
+camera.aspect=
+innerWidth/innerHeight;
+
+camera.updateProjectionMatrix();
+
+renderer.setSize(
+innerWidth,
+innerHeight
+);
+
+});
+
+</script>
+
+</body>
+</html>
